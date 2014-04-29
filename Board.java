@@ -1,11 +1,14 @@
 public class Board {
-	private int[][] boardState;
-	private int emptyTiles;
-    private int numEmptyTiles;
+	public int[][] boardState;
+	public int emptyTiles;
+    public int numEmptyTiles;
 
-	public Board(int[][] board){
-		board = new int[4][4];
-		System.arraycopy(boardState, 0, board, 0, boardState.length);
-		calcEmptyTiles();
+	public Board(){
+		boardState = new int[4][4];
+	}
+
+	public Board(Board board){
+		boardState = new int[4][4];
+		System.arraycopy(board.boardState, 0, boardState, 0, board.boardState.length);
 	}
 }

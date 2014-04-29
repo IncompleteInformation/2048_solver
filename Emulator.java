@@ -1,7 +1,7 @@
 import java.util.Random;
 
 public class Emulator {
-    int[][] curBoard   = { {0,0,0,0} , {0,0,0,0} , {0,0,0,0} , {0,0,0,0} };
+    int[][] inBoard   = { {0,0,0,0} , {0,0,0,0} , {0,0,0,0} , {0,0,0,0} };
 
     private static final int[]   d0 = {12,  8,  4,  0};
     private static final int[]   d1 = {13,  9,  5,  1};
@@ -31,17 +31,17 @@ public class Emulator {
         Random rgen = new Random();
     }
 
-    public void newTile(int loc, int val, int[][] boardState) {
+    public void newTile(int loc, int val, Board board) {
         int row = loc/4;
         int col = loc%4;
-        boardState[row][col]=val;
+        board.boardState[row][col]=val;
     }
 
-    private int getTileVal(int loc, int[][] boardState) {
-        return boardState[loc/4][loc%4];
+    private int getTileVal(int loc, Board board) {
+        return board.boardState[loc/4][loc%4];
     }
     
-    public void oneMove(int dir, int[][] boardState) { //make private eventually
+    public void oneMove(int dir, Board board) { //make private eventually
         int[][] superSet;
         switch (dir){
             case 0: superSet = d; break;
@@ -52,33 +52,33 @@ public class Emulator {
         }
         for (int i = 0; i < 4; i++){
             for (int j = 0; j < 3; j++){
-                findFriends(j, superSet[i], boardState);
+                findFriends(j, superSet[i], board);
             }
-            condense(superSet[i], boardState);
+            condense(superSet[i], board);
         }
-        calcEmptyTiles(boardState);
+        calcEmptyTiles(board);
     }
 
-    private void findFriends(int cur, int[] set, int[][] boardState){
+    private void findFriends(int cur, int[] set, Board board){
         int next = cur+1;
-        int curVal = boardState[set[cur]/4][set[cur]%4];
+        int curVal = board.boardState[set[cur]/4][set[cur]%4];
         if (curVal == 0) return;
-        while (next < 3 && getTileVal(set[next]) == 0) next++;
-        if (curVal == getTileVal(set[next])){
-            newTile(set[next],        0);
-            newTile(set[cur ], curVal*2);
+        while (next < 3 && getTileVal(set[next], board) == 0) next++;
+        if (curVal == getTileVal(set[next], board)){
+            newTile(set[next],        0, board);
+            newTile(set[cur ], curVal*2, board);
             return;
         }
         else return;
     }
 
-    private void condense(int[] set, int[][] boardState){
+    private void condense(int[] set, Board board){
         int counter = 0;
         for (int i = 0; i < 4; i++){
-            if (getTileVal(set[i], boardState)!=0){
+            if (getTileVal(set[i], board)!=0){
                 if (i!=counter){
-                    newTile( set[counter] , getTileVal( set[i] , boardState));
-                    newTile( set[i      ] , 0                  , boardState );
+                    newTile( set[counter] , getTileVal( set[i] , board), board);
+                    newTile( set[i      ] , 0                  , board);
                     counter++;
                 }
                 else counter++;
@@ -86,29 +86,67 @@ public class Emulator {
         }
     }
 
-    public void printBoard(int[][] boardState){
-        for (int i = 0; i<16; i+=4){
-            System.out.printf("%02d %02d %02d %02d\n", 
-                boardState[(i+0)/4][(i+0)%4], boardState[(i+1)/4][(i+1)%4],
-                boardState[(i+2)/4][(i+2)%4], boardState[(i+3)/4][(i+3)%4]);
-        }
-        System.out.println();
-    }
-
-    private void calcEmptyTiles(int[][] boardState){
-        emptyTiles = 0;
-        numEmptyTiles = 0;
+    private void calcEmptyTiles(Board board){
+        board.emptyTiles = 0;
+        board.numEmptyTiles = 0;
         for (int i=0; i<16; i++){
-            if (boardState[i/4][i%4] == 0) {
-                emptyTiles = (emptyTiles|1<<i);
-                numEmptyTiles++;
+            if (board.boardState[i/4][i%4] == 0) {
+                board.emptyTiles = (board.emptyTiles|1<<i);
+                board.numEmptyTiles++;
             }
         }
     }
 
-    private void spawnTileIter(int i, int[][] boardState){
-        for (int i = 0; i<16; i++){
-            if ((emptyTiles & 1<<i) != 0) {continue;}
+    public void printBoard(Board board){
+        for (int i = 0; i<16; i+=4){
+            System.out.printf("%02d %02d %02d %02d\n", 
+                board.boardState[(i+0)/4][(i+0)%4], board.boardState[(i+1)/4][(i+1)%4],
+                board.boardState[(i+2)/4][(i+2)%4], board.boardState[(i+3)/4][(i+3)%4]);
         }
+        System.out.println();
+    }
+
+    private float recursiveMaximumDirections(Board inBoard, int depth){
+        Board[] boards = new Board[4];
+        float max = -1;
+        if (depth == 0){
+            for (int i = 0; i<4; i++){
+                System.arraycopy(inBoard, 0, boards[i].boardState, 0, inBoard.boardState.length);
+                oneMove(i, boards[i]);
+                if (boards[i].numEmptyTiles>max) max = boards[i].numEmptyTiles;
+            }
+        }
+        else{
+                for (int i = 0; i<4; i++){
+                System.arraycopy(inBoard, 0, boards[i].boardState, 0, inBoard.boardState.length);
+                oneMove(i, boards[i]);
+                float temp = recursiveAverageRandoms(boards[i], depth);
+                if (temp>max) max = boards[i].numEmptyTiles;
+            }
+        }
+        return max;
+    }
+
+    private float recursiveAverageRandoms(Board inBoard, int depth){
+        Board[] randomChildren = new Board[30]; //allocate max possible needed space. this is for 2s and 4s
+        int counter = 0;
+        float total = 0;
+        for (int i = 0; i<16; i++){
+            if ((inBoard.emptyTiles & 1<<i) != 0){
+                Board cur2 = new Board();
+                Board cur4 = new Board();
+                System.arraycopy(inBoard.boardState, 0 , cur2.boardState, 0 , inBoard.boardState.length);
+                System.arraycopy(inBoard.boardState, 0 , cur4.boardState, 0 , inBoard.boardState.length);
+                newTile(i, 2, cur2);
+                newTile(i, 4, cur2);
+                randomChildren[counter] = cur2;
+                randomChildren[counter] = cur4;
+                counter+=2;
+            }
+        }
+        for (int i = 0; i<counter; i++){
+            total+=recursiveMaximumDirections(randomChildren[i], depth-1);
+        }
+        return total/counter;
     }
 }

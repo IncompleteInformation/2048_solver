@@ -15,6 +15,11 @@ clearly I am not understanding the problem
 
 no, this is normal recursion
 
+The very first thing we do is calculate the four board states resultant from moving in the four directions. 
+	their results are then run through the recursive function. So the first thing the recursive
+	fucntion does is create all of the random boards from the input, each random board then tries to calculate 
+	the average of its down,left,up,right children
+
 float lookahead(Board board, int depth)
 	if depth == 0 { return average(board)}
 
@@ -22,11 +27,22 @@ float lookahead(Board board, int depth)
 
 
 
-	
+	private int grabMax(Board inBoard){
+		Board[] boards = new Board[4];
+		int max = -1;
+		for (int i = 0; i<4; i++){
+			System.arraycopy(inBoard, 0, boards[i].board, 0, inBoard.length);
+			oneMove(boards[i], i);
+			calcEmptyTiles(boards[i]);
+			if (boards[i].numEmptyTiles>max) max = boards[i].numEmptyTiles;
+		}
+		return max;
+	}
 
-    private Board[] spawnRandomChildren(int i, curBoard){
+    private float recursiveAverageRandoms(Board curBoard, int depth){
     	Board[] randomChildren = new Board[30]; //allocate max possible needed space. this is for 2s and 4s
     	int counter = 0;
+    	float total = 0;
         for (int i = 0; i<16; i++){
             if ((curBoard.emptyTiles & 1<<i) != 0){
             	Board cur2 = new Board();
@@ -40,7 +56,10 @@ float lookahead(Board board, int depth)
             	counter+=2;
             }
         }
-        return randomChildren;
+        for (int i = 0; i<counter; i++){
+        	total+=recursiveMaximumDirections(randomChildren[i], depth);
+        }
+        return total/counter;
 
     }
 
