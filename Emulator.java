@@ -1,7 +1,13 @@
 import java.util.Random;
+import java.util.TreeMap;
+import java.util.Map;
 
 public class Emulator {
-    int[][] inBoard   = { {0,0,0,0} , {0,0,0,0} , {0,0,0,0} , {0,0,0,0} };
+    Board curBoard;
+    long numberOfTries;
+    double estNumberMoves;
+    long boardsEstimated;
+    long boardsGenerated;
 
     private static final int[]   d0 = {12,  8,  4,  0};
     private static final int[]   d1 = {13,  9,  5,  1};
@@ -28,20 +34,27 @@ public class Emulator {
     private static final int[][] r  = {r0, r1, r2, r3};
 
     public Emulator() {
+        curBoard = new Board();
+        curBoard.numEmptyTiles = 16;
+        estNumberMoves = 0;
+        numberOfTries = 0;
         Random rgen = new Random();
     }
 
     public void newTile(int loc, int val, Board board) {
+        // System.out.println("newtile");
         int row = loc/4;
         int col = loc%4;
         board.boardState[row][col]=val;
     }
 
-    private int getTileVal(int loc, Board board) {
+    public int getTileVal(int loc, Board board) {
+        // System.out.println("getTile");
         return board.boardState[loc/4][loc%4];
     }
     
     public void oneMove(int dir, Board board) { //make private eventually
+        // System.out.println("oneMove");
         int[][] superSet;
         switch (dir){
             case 0: superSet = d; break;
@@ -58,8 +71,15 @@ public class Emulator {
         }
         calcEmptyTiles(board);
     }
-
+    private boolean isSame(Board one, Board two){
+        // System.out.println("isSame");
+        for (int i = 0; i<16; i++){
+            if (one.boardState[i/4][i%4] != two.boardState[i/4][i%4]) return false;
+        }
+        return true;
+    }
     private void findFriends(int cur, int[] set, Board board){
+        // System.out.println("findFriends");
         int next = cur+1;
         int curVal = board.boardState[set[cur]/4][set[cur]%4];
         if (curVal == 0) return;
@@ -73,6 +93,7 @@ public class Emulator {
     }
 
     private void condense(int[] set, Board board){
+        // System.out.println("condense");
         int counter = 0;
         for (int i = 0; i < 4; i++){
             if (getTileVal(set[i], board)!=0){
@@ -87,6 +108,7 @@ public class Emulator {
     }
 
     private void calcEmptyTiles(Board board){
+        // System.out.println("calcempty");
         board.emptyTiles = 0;
         board.numEmptyTiles = 0;
         for (int i=0; i<16; i++){
@@ -99,54 +121,149 @@ public class Emulator {
 
     public void printBoard(Board board){
         for (int i = 0; i<16; i+=4){
-            System.out.printf("%02d %02d %02d %02d\n", 
+            System.out.printf("%4d %4d %4d %4d\n", 
                 board.boardState[(i+0)/4][(i+0)%4], board.boardState[(i+1)/4][(i+1)%4],
                 board.boardState[(i+2)/4][(i+2)%4], board.boardState[(i+3)/4][(i+3)%4]);
         }
         System.out.println();
     }
+    public int chooseMoveAndUpdate(){
+        Board[] boards = new Board[4];
+        Map<Float,Integer> dict = new TreeMap<Float,Integer>();
+        int bestDir = -1;
+        int curDir = -1;
+        numberOfTries = 0;
+        int numTries = 2;
+        if (curBoard.numEmptyTiles == 0) curBoard.numEmptyTiles = 1;
+        while (Math.pow((4*curBoard.numEmptyTiles), (double)numTries) < 10000000) numTries++;
+        numTries--;
+        estNumberMoves = Math.pow((4*curBoard.numEmptyTiles), (double)numTries);
+        System.out.println();
+        System.out.printf("est:    %32d\n", (long)estNumberMoves);
+        for (int i = 0; i<4; i++){
+            boards[i] = new Board();
+            copyTheDamnData(curBoard, boards[i]);
+            oneMove(i, boards[i]);
 
+            Float temp = new Float(-1*(recursiveAverageRandoms(boards[i], numTries)));
+            while ((dict.containsKey(temp)) && !temp.equals(Float.NaN)){
+                temp += Float.valueOf(.0001f);
+            }
+            dict.put(temp,i);
+            numberOfTries++;
+            if(numberOfTries%100000==0){
+                System.out.printf("#");
+            }
+        }
+        boardsEstimated += estNumberMoves;
+        boardsGenerated += numberOfTries;
+        System.out.println();
+        System.out.printf("actual: %32d\nrecursion depth: %23d\nchosen move value: %21f\n", numberOfTries, numTries, dict.entrySet().iterator().next().getKey());
+        System.out.println();
+        int numFails = 0;
+        for(Map.Entry<Float,Integer> entry : dict.entrySet()) {
+            curDir = entry.getValue();
+            // System.out.println(curDir);
+            Board checkMove = new Board();
+            copyTheDamnData(curBoard, checkMove);
+            oneMove(curDir,curBoard);
+            if (!isSame( curBoard, checkMove )) {
+                System.out.println("ALTERED BOARD");
+                printBoard(curBoard);
+                // System.out.println("PREVIOUS BOARD");
+                // printBoard(checkMove);
+
+                bestDir = curDir;
+                return bestDir;
+            }
+            else {
+                System.out.printf("bro we tried %d\n", curDir);
+                numFails++;
+            }
+        }
+        if (numFails!=4){
+            for (int i = 0; i<4; i++){
+                Board checkMove = new Board();
+                copyTheDamnData(curBoard, checkMove);
+                oneMove(i,curBoard);
+                if (!isSame( curBoard, checkMove )){
+                    System.out.println("recovery");
+                    bestDir = i;
+                    return bestDir;
+                }
+            }
+        }
+        System.out.println("errythang fucked");
+        return -1;
+    }
     private float recursiveMaximumDirections(Board inBoard, int depth){
+        // System.out.println("rmd");
         Board[] boards = new Board[4];
         float max = -1;
+        int maxI = -1;
         if (depth == 0){
             for (int i = 0; i<4; i++){
-                System.arraycopy(inBoard, 0, boards[i].boardState, 0, inBoard.boardState.length);
+                boards[i] = new Board();
+
+                copyTheDamnData(inBoard, boards[i]);
                 oneMove(i, boards[i]);
                 if (boards[i].numEmptyTiles>max) max = boards[i].numEmptyTiles;
+                numberOfTries++;
+                if(numberOfTries%100000==0){
+                    System.out.printf("#");
+                }
             }
         }
         else{
-                for (int i = 0; i<4; i++){
-                System.arraycopy(inBoard, 0, boards[i].boardState, 0, inBoard.boardState.length);
+            for (int i = 0; i<4; i++){
+                boards[i] = new Board();
+                copyTheDamnData(inBoard, boards[i]);
                 oneMove(i, boards[i]);
                 float temp = recursiveAverageRandoms(boards[i], depth);
                 if (temp>max) max = boards[i].numEmptyTiles;
             }
         }
+        // System.out.println(max);
         return max;
     }
-
+    private void copyTheDamnData(Board input, Board output){
+        // System.out.println("cpd");
+        for (int i = 0; i<16; i++){
+            output.boardState[i/4][i%4] = input.boardState[i/4][i%4];
+        }
+    }
     private float recursiveAverageRandoms(Board inBoard, int depth){
-        Board[] randomChildren = new Board[30]; //allocate max possible needed space. this is for 2s and 4s
+        // System.out.println("rar");
+        // System.out.println("average recurse");
+        // printBoard(inBoard);
+        Board[] randomChildren = new Board[15]; //allocate max possible needed space. this is for 2s and 4s
         int counter = 0;
         float total = 0;
+        
         for (int i = 0; i<16; i++){
+            // System.out.println("rar1");
             if ((inBoard.emptyTiles & 1<<i) != 0){
+                // System.out.println("rar2");
                 Board cur2 = new Board();
-                Board cur4 = new Board();
-                System.arraycopy(inBoard.boardState, 0 , cur2.boardState, 0 , inBoard.boardState.length);
-                System.arraycopy(inBoard.boardState, 0 , cur4.boardState, 0 , inBoard.boardState.length);
+                // Board cur4 = new Board();
+                copyTheDamnData(inBoard, cur2);
+                // copyTheDamnData(inBoard, cur4);
                 newTile(i, 2, cur2);
-                newTile(i, 4, cur2);
+                // newTile(i, 4, cur4);
                 randomChildren[counter] = cur2;
-                randomChildren[counter] = cur4;
-                counter+=2;
+                // randomChildren[counter+1] = cur4;
+                counter+=1;//2
             }
         }
         for (int i = 0; i<counter; i++){
+            // System.out.println("rar3");
+            numberOfTries++;
+            if(numberOfTries%100000==0){
+                System.out.printf("#");
+            }
             total+=recursiveMaximumDirections(randomChildren[i], depth-1);
         }
+        // System.out.println("rar4");
         return total/counter;
     }
 }
