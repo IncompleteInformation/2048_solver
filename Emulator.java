@@ -135,11 +135,12 @@ public class Emulator {
         numberOfTries = 0;
         int numTries = 2;
         if (curBoard.numEmptyTiles == 0) curBoard.numEmptyTiles = 1;
-        while (Math.pow((4*curBoard.numEmptyTiles), (double)numTries) < 10000000) numTries++;
+        while (Math.pow((4*curBoard.numEmptyTiles), (double)numTries) < 100000) numTries++;
         numTries--;
+        if (numTries>6) numTries = 6;
         estNumberMoves = Math.pow((4*curBoard.numEmptyTiles), (double)numTries);
         System.out.println();
-        System.out.printf("est:    %32d\n", (long)estNumberMoves);
+        System.out.printf("est:    %32d\nrecursion depth: %23d\n", (long)estNumberMoves, numTries);
         for (int i = 0; i<4; i++){
             boards[i] = new Board();
             copyTheDamnData(curBoard, boards[i]);
@@ -149,6 +150,7 @@ public class Emulator {
             while ((dict.containsKey(temp)) && !temp.equals(Float.NaN)){
                 temp += Float.valueOf(.0001f);
             }
+
             dict.put(temp,i);
             numberOfTries++;
             if(numberOfTries%100000==0){
@@ -158,7 +160,7 @@ public class Emulator {
         boardsEstimated += estNumberMoves;
         boardsGenerated += numberOfTries;
         System.out.println();
-        System.out.printf("actual: %32d\nrecursion depth: %23d\nchosen move value: %21f\n", numberOfTries, numTries, dict.entrySet().iterator().next().getKey());
+        System.out.printf("actual: %32d\nchosen move value: %21f\n", numberOfTries, dict.entrySet().iterator().next().getKey());
         System.out.println();
         int numFails = 0;
         for(Map.Entry<Float,Integer> entry : dict.entrySet()) {
