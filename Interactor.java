@@ -29,15 +29,16 @@ public class Interactor {
 
         getCorners(robot);
         int dir;
-
+        boolean justWon = true;
         boolean running = true;
         while(running) {
         	robot.delay(325);
             coord = MouseInfo.getPointerInfo().getLocation();       
             Color color = robot.getPixelColor((int)coord.getX(), (int)coord.getY());
+            if (player.findMax(player.curBoard) == 2048 && justWon) {keepGoing(robot);justWon=false;}
             lookAndPopulate(robot);
             updatePlayerBoard();
-            //player.printBoard(player.curBoard);
+
             dir = player.chooseMoveAndUpdate();
 	        switch (dir){
 	            case 0: robot.keyPress(KeyEvent.VK_DOWN); break;
@@ -52,10 +53,30 @@ public class Interactor {
         System.out.printf("Total Boards Estimated: %22d\nTotal Boards Generated: %22d\n", player.boardsEstimated,
     player.boardsGenerated);
     }
+    public static void keepGoing(Robot robot){
+    	int x = (int)(topLeft.getX() + (width*(2.0/4)*.333));
+		int y = (int)(topLeft.getY() + (height*(1.8)*.333));
+		robot.mouseMove(x,y);
+		System.out.println("THE CROWD GOES WILD");
+		robot.delay(4000);
+		robot.mousePress(InputEvent.BUTTON1_MASK);
+		robot.mouseRelease(InputEvent.BUTTON1_MASK);
+		robot.mouseMove(0,0);
+		System.out.println("RESUMING IN...");
+		countdown(robot, 10000);
+
+    }
+    public static void countdown(Robot robot, int ms){
+    	while (ms>0){
+    		System.out.println(ms/1000);
+    		robot.delay(1000);
+    		ms-=1000;
+    	}
+    }
     public static void lookAndPopulate(Robot robot){
         for (int i = 0; i<16; i++){
-            int x = (int)(topLeft.getX() + (height*(i/4)*.333));
-            int y = (int)(topLeft.getY() + (width*(i%4)*.333));
+            int x = (int)(topLeft.getX() + (width*(i/4)*.333));
+            int y = (int)(topLeft.getY() + (height*(i%4)*.333));
             Color color = robot.getPixelColor(x,y);
             if (colorEq(color, zero)){
                 perceivedBoardState[i%4][i/4] = 0;
