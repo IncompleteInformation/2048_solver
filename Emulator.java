@@ -34,6 +34,15 @@ public class Emulator {
     private static final int[]   r3 = {15, 14, 13, 12};
     private static final int[][] r  = {r0, r1, r2, r3};
 
+    private static final int[]   d0snake  = {0, 4, 8, 12, 13, 9, 5, 1, 2, 6, 10, 14, 15, 11, 7, 3};
+    private static final int[]   d3snake  = {3, 7, 11, 15, 14, 10, 6, 2, 1, 5, 9, 13, 12, 8, 4, 0};
+    private static final int[]   l3snake  = {3, 2, 1, 0, 4, 5, 6, 7, 11, 10, 9, 8, 12, 13, 14, 15};
+    private static final int[]   l15snake = {15, 14, 13, 12, 8, 9, 10, 11, 7, 6, 5, 4, 0, 1, 2, 3};
+    private static final int[]   u12snake = {12, 8, 4, 0, 1, 5, 9, 13, 14, 10, 6, 2, 3, 7, 11, 15};
+    private static final int[]   u15snake = {15, 11, 7, 3, 2, 6, 10, 14, 13, 9, 5, 1, 0, 4, 8, 12};
+    private static final int[]   r0snake  = {0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12};
+    private static final int[]   r12snake = {12, 13, 14, 15, 11, 10, 9, 8, 4, 5, 6, 7, 3, 2, 1, 0};
+
     public Emulator() {
         curBoard = new Board();
         curBoard.numEmptyTiles = 16;
@@ -139,10 +148,10 @@ public class Emulator {
         if (curBoard.numEmptyTiles == 0) curBoard.numEmptyTiles = 1;
         while (Math.pow((4*curBoard.numEmptyTiles), (double)numTries) < 1000000) numTries++;
         numTries--;
-        if (numTries>6) numTries = 6;
+        if (numTries>3) numTries = 3;
         estNumberMoves = Math.pow((4*curBoard.numEmptyTiles), (double)numTries);
         System.out.println();
-        System.out.printf("est:    %32d\nrecursion depth: %23d\nsnake direction: %23d\n", (long)estNumberMoves, numTries, curBoard.snakeDir);
+        System.out.printf("est:    %32d\nrecursion depth: %23d\n", (long)estNumberMoves, numTries);
         for (int i = 0; i<4; i++){
             boards[i] = new Board();
             copyTheDamnData(curBoard, boards[i]);
@@ -162,9 +171,7 @@ public class Emulator {
         }
         boardsEstimated += estNumberMoves;
         boardsGenerated += numberOfTries;
-        System.out.println();
-        System.out.printf("actual: %32d\nchosen move value: %21f\n", numberOfTries, dict.entrySet().iterator().next().getKey());
-        System.out.println();
+
         int numFails = 0;
         for(Map.Entry<Float,Integer> entry : dict.entrySet()) {
             curDir = entry.getValue();
@@ -175,6 +182,10 @@ public class Emulator {
             if (!isSame( curBoard, checkMove )) {
                 System.out.println("ALTERED BOARD");
                 printBoard(curBoard);
+                System.out.println();
+                determineSnakeDir(curBoard);
+                System.out.printf("actual: %32d\nchosen move value: %21f\nsnake direction: %23d\n", numberOfTries, dict.entrySet().iterator().next().getKey(), curBoard.snakeDir);
+                System.out.println();
 
                 bestDir = curDir;
                 return bestDir;
@@ -234,11 +245,26 @@ public class Emulator {
     }
     private float normalizedAverage(Board board){
         float total = 0;
+        int count = 0;
         for (int i = 0; i<16; i++){
-            total+=board.boardState[i/4][i%4];
+            if (board.boardState[i/4][i%4] > 16) {
+                count++;
+                total+=board.boardState[i/4][i%4];
+            }
         }
-        total/=16;
-        
+        total/=count;
+        int max = findMax(board);
+        float normalized = total/max;
+        return normalized*1000;
+    }
+    private float reduceRepeats(Board board){
+        int[] sortedTiles = sortedValues(board);
+        float repeats = 0;
+        for (int i = 0; i<15; i++){
+            if (sortedTiles[i] < 8) break;
+            if (sortedTiles[i] == sortedTiles[i+1]) repeats+=1;
+        }
+        return (16-repeats)/4;
     }
     private float closeFriends(Board board){
         int max = -1;
@@ -254,13 +280,44 @@ public class Emulator {
             if (temp>max2 && temp < max) {max2 = temp; buddyLoc = i;}
         }
         if (hammingDistance(buddyLoc, maxI) == 1) {
-            if (maxI/4 < buddyLoc/4) board.snakeDir = 2; //up
-            if (maxI/4 > buddyLoc/4) board.snakeDir = 0; //down
-            if (maxI%4 < buddyLoc%4) board.snakeDir = 3; //right
-            if (maxI%4 > buddyLoc%4) board.snakeDir = 1; //left
+            if ((maxI/4 > buddyLoc/4) && (maxI == 0))  board.snakeDir = 0 ; //down 0
+            if ((maxI/4 > buddyLoc/4) && (maxI == 3))  board.snakeDir = 1 ; //down 3
+            if ((maxI%4 > buddyLoc%4) && (maxI == 3))  board.snakeDir = 2 ; //left 3
+            if ((maxI%4 > buddyLoc%4) && (maxI == 15)) board.snakeDir = 3 ; //left 15
+            if ((maxI/4 < buddyLoc/4) && (maxI == 15)) board.snakeDir = 4 ; //up 15
+            if ((maxI/4 < buddyLoc/4) && (maxI == 12)) board.snakeDir = 5 ; //up 12
+            if ((maxI%4 < buddyLoc%4) && (maxI == 12)) board.snakeDir = 6 ; //right 12
+            if ((maxI%4 < buddyLoc%4) && (maxI == 0))  board.snakeDir = 7 ; //right 0
+            
             return 5f;
         }
         else return 0;
+    }
+    private void determineSnakeDir(Board board){
+        int[] sortedTiles = sortedValues(board);
+        int maxI = -1; int buddyLoc = -1;
+        for (int i = 0; i<16; i++){
+            if (board.boardState[i/4][i%4] == sortedTiles[0]){
+                maxI = i;
+            }
+        }
+        for (int i = 0; i<16; i++){
+            if (i==maxI) continue;
+            if (board.boardState[i/4][i%4] == sortedTiles[1]){
+                buddyLoc = i;
+            }
+        }
+        if (hammingDistance(buddyLoc, maxI) == 1) {
+            if ((maxI/4 > buddyLoc/4) && (maxI == 0))  board.snakeDir = 0 ; //down 0
+            if ((maxI/4 > buddyLoc/4) && (maxI == 3))  board.snakeDir = 1 ; //down 3
+            if ((maxI%4 > buddyLoc%4) && (maxI == 3))  board.snakeDir = 2 ; //left 3
+            if ((maxI%4 > buddyLoc%4) && (maxI == 15)) board.snakeDir = 3 ; //left 15
+            if ((maxI/4 < buddyLoc/4) && (maxI == 15)) board.snakeDir = 4 ; //up 15
+            if ((maxI/4 < buddyLoc/4) && (maxI == 12)) board.snakeDir = 5 ; //up 12
+            if ((maxI%4 < buddyLoc%4) && (maxI == 12)) board.snakeDir = 6 ; //right 12
+            if ((maxI%4 < buddyLoc%4) && (maxI == 0))  board.snakeDir = 7 ; //right 0
+        }
+        else board.snakeDir = -1;
     }
     private int[] sortedValues(Board board){
         int[] unsortedVals = new int[16];
@@ -275,44 +332,38 @@ public class Emulator {
         return sortedVals;
     }
     private float wallSnake(Board board){
-        int secondPos, thirdPos, fourthPos, curMax;
+        int[] snakeMatrix;
         float score = 0;
+        int curAlloc = 512;
         switch (board.snakeDir) {
-            case 0: secondPos = 7;
-                    thirdPos = 11;
-                    fourthPos = 15;
-                    break;
-            case 1: secondPos = 14;
-                    thirdPos = 13;
-                    fourthPos = 12;
-                    break;
-            case 2: secondPos = 8;
-                    thirdPos = 4;
-                    fourthPos = 0;
-                    break;
-            case 3: secondPos = 1;
-                    thirdPos = 2;
-                    fourthPos = 3;
-                    break;
-            default: secondPos = 16; 
-                    thirdPos = 16;
-                    fourthPos = 16;
-                    break;
+            case 0 : snakeMatrix = d0snake;
+                        break;
+            case 1 : snakeMatrix = d3snake;
+                        break;
+            case 2 : snakeMatrix = l3snake;
+                        break;
+            case 3 : snakeMatrix = l15snake;
+                        break;
+            case 4 : snakeMatrix = u15snake;
+                        break;
+            case 5 : snakeMatrix = u12snake;
+                        break;
+            case 6 : snakeMatrix = r12snake;
+                        break;
+            case 7 : snakeMatrix = r0snake;
+                        break;
+            default   : snakeMatrix = null;
+                        break;
         }
-        curMax = findMax(board);
         int[] sortedTiles = sortedValues(board);
-        if (thirdPos<16) {
-            int valSecond = board.boardState[secondPos/4][secondPos%4];
-            int valThird  = board.boardState[thirdPos/4][thirdPos%4];
-            int valFourth = board.boardState[fourthPos/4][fourthPos%4];
-            if (valSecond == sortedTiles[1]) {
-                score = 8;
-                if (valThird == sortedTiles[2]) {
-                    score += 4;
-                    if (valFourth == sortedTiles[3]) {
-                        score +=2;
-                    }
+
+        if (snakeMatrix!=null) {
+            for (int i = 0; i<16; i++) {
+                if (sortedTiles[i] == board.boardState[snakeMatrix[i]/4][snakeMatrix[i]%4]) {
+                    score += curAlloc;
+                    if (curAlloc>1) curAlloc/=2;
                 }
+                else {break;}
             }
         }else{
             board.snakeDir = -1;
@@ -325,7 +376,6 @@ public class Emulator {
         else return 0;
     }
     private float recursiveMaximumDirections(Board inBoard, int depth, int maxToBeat){
-        // System.out.println("rmd");
         Board[] boards = new Board[4];
         float max = -1;
         int maxI = -1;
@@ -335,7 +385,8 @@ public class Emulator {
 
                 copyTheDamnData(inBoard, boards[i]);
                 oneMove(i, boards[i]);
-                float curDirVal = emptyTilesHeuristic(boards[i])+cornerTheBigGuyHeuristic(boards[i])+closeFriends(boards[i])+uniteMaxes(boards[i], maxToBeat)+wallSnake(boards[i]);
+                determineSnakeDir(boards[i]);
+                float curDirVal = reduceRepeats(boards[i]) + wallSnake(boards[i]) + emptyTilesHeuristic(boards[i]);
                 if (curDirVal>max) max = curDirVal;
                 numberOfTries++;
                 if(numberOfTries%100000==0){

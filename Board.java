@@ -3,7 +3,7 @@ public class Board {
 	public int emptyTiles;
     public int numEmptyTiles;
     public int snakeDir;
-    
+
 	public Board(){
 		emptyTiles = 0;
 		numEmptyTiles = 0;
