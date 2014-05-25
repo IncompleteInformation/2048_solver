@@ -32,7 +32,8 @@ public class Interactor {
         boolean justWon = true;
         boolean running = true;
         while(running) {
-        	robot.delay(325);
+        	// robot.delay(325);
+            robot.delay(2000);
             coord = MouseInfo.getPointerInfo().getLocation();       
             Color color = robot.getPixelColor((int)coord.getX(), (int)coord.getY());
             if (player.findMax(player.curBoard) == 2048 && justWon) {keepGoing(robot);justWon=false;}
