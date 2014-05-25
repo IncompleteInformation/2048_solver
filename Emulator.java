@@ -1,6 +1,7 @@
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.Map;
+import java.util.Arrays;
 
 public class Emulator {
     Board curBoard;
@@ -136,12 +137,12 @@ public class Emulator {
         numberOfTries = 0;
         int numTries = 2;
         if (curBoard.numEmptyTiles == 0) curBoard.numEmptyTiles = 1;
-        while (Math.pow((4*curBoard.numEmptyTiles), (double)numTries) < 100000) numTries++;
+        while (Math.pow((4*curBoard.numEmptyTiles), (double)numTries) < 1000000) numTries++;
         numTries--;
         if (numTries>6) numTries = 6;
         estNumberMoves = Math.pow((4*curBoard.numEmptyTiles), (double)numTries);
         System.out.println();
-        System.out.printf("est:    %32d\nrecursion depth: %23d\n", (long)estNumberMoves, numTries);
+        System.out.printf("est:    %32d\nrecursion depth: %23d\nsnake direction: %23d\n", (long)estNumberMoves, numTries, curBoard.snakeDir);
         for (int i = 0; i<4; i++){
             boards[i] = new Board();
             copyTheDamnData(curBoard, boards[i]);
@@ -231,6 +232,14 @@ public class Emulator {
         if (c1%4 == c2%4 && Math.abs(c1/4 - c2/4) == 1) return 1;
         return 0;
     }
+    private float normalizedAverage(Board board){
+        float total = 0;
+        for (int i = 0; i<16; i++){
+            total+=board.boardState[i/4][i%4];
+        }
+        total/=16;
+        
+    }
     private float closeFriends(Board board){
         int max = -1;
         int maxI = -1;
@@ -244,8 +253,71 @@ public class Emulator {
             int temp = board.boardState[i/4][i%4];
             if (temp>max2 && temp < max) {max2 = temp; buddyLoc = i;}
         }
-        if (hammingDistance(buddyLoc, maxI) == 1) return 5f;
+        if (hammingDistance(buddyLoc, maxI) == 1) {
+            if (maxI/4 < buddyLoc/4) board.snakeDir = 2; //up
+            if (maxI/4 > buddyLoc/4) board.snakeDir = 0; //down
+            if (maxI%4 < buddyLoc%4) board.snakeDir = 3; //right
+            if (maxI%4 > buddyLoc%4) board.snakeDir = 1; //left
+            return 5f;
+        }
         else return 0;
+    }
+    private int[] sortedValues(Board board){
+        int[] unsortedVals = new int[16];
+        int[] sortedVals = new int[16];
+        for (int i = 0; i<16; i++){
+            unsortedVals[i] = board.boardState[i/4][i%4];
+        }
+        Arrays.sort(unsortedVals);
+        for (int i = 0; i<16; i++){
+            sortedVals[15-i] = unsortedVals[i];
+        }
+        return sortedVals;
+    }
+    private float wallSnake(Board board){
+        int secondPos, thirdPos, fourthPos, curMax;
+        float score = 0;
+        switch (board.snakeDir) {
+            case 0: secondPos = 7;
+                    thirdPos = 11;
+                    fourthPos = 15;
+                    break;
+            case 1: secondPos = 14;
+                    thirdPos = 13;
+                    fourthPos = 12;
+                    break;
+            case 2: secondPos = 8;
+                    thirdPos = 4;
+                    fourthPos = 0;
+                    break;
+            case 3: secondPos = 1;
+                    thirdPos = 2;
+                    fourthPos = 3;
+                    break;
+            default: secondPos = 16; 
+                    thirdPos = 16;
+                    fourthPos = 16;
+                    break;
+        }
+        curMax = findMax(board);
+        int[] sortedTiles = sortedValues(board);
+        if (thirdPos<16) {
+            int valSecond = board.boardState[secondPos/4][secondPos%4];
+            int valThird  = board.boardState[thirdPos/4][thirdPos%4];
+            int valFourth = board.boardState[fourthPos/4][fourthPos%4];
+            if (valSecond == sortedTiles[1]) {
+                score = 8;
+                if (valThird == sortedTiles[2]) {
+                    score += 4;
+                    if (valFourth == sortedTiles[3]) {
+                        score +=2;
+                    }
+                }
+            }
+        }else{
+            board.snakeDir = -1;
+        }
+        return score;
     }
     private float uniteMaxes(Board board, int maxToBeat){
         int curMax = findMax(board);
@@ -263,7 +335,7 @@ public class Emulator {
 
                 copyTheDamnData(inBoard, boards[i]);
                 oneMove(i, boards[i]);
-                float curDirVal = emptyTilesHeuristic(boards[i])+cornerTheBigGuyHeuristic(boards[i])+closeFriends(boards[i])+uniteMaxes(boards[i], maxToBeat);
+                float curDirVal = emptyTilesHeuristic(boards[i])+cornerTheBigGuyHeuristic(boards[i])+closeFriends(boards[i])+uniteMaxes(boards[i], maxToBeat)+wallSnake(boards[i]);
                 if (curDirVal>max) max = curDirVal;
                 numberOfTries++;
                 if(numberOfTries%100000==0){
