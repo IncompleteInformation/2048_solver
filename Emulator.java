@@ -122,10 +122,9 @@ public class Emulator {
             }
         }
     }
-
     private int calcRecursionDepth(Board board){
         int min = 2;
-        int max = 3;
+        int max = 4;
         int depth = min;
         if (board.numEmptyTiles == 0) board.numEmptyTiles = 1;
         while (Math.pow((4*board.numEmptyTiles), (double)depth+1) < 1000000) depth++;
@@ -246,6 +245,7 @@ public class Emulator {
         if (snakeMatrix!=null) {
             int i = 0;
             while (sortedTiles[i]>=snakeMin){
+                if (i==16) {break;}
                 if (sortedTiles[i] == board.boardState[snakeMatrix[i]/4][snakeMatrix[i]%4]) {i++; continue;}
                 else {return 0;}
             }
