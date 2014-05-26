@@ -183,12 +183,29 @@ public class Emulator {
         else if ((getTileVal(0,  board) == sortedTiles[0]) && (getTileVal(1,  board) == sortedTiles[1])) board.snakeDir = 7 ; //right 0
         else    board.snakeDir = -1;
     }
+    private int calcSnakeMin(int snakeMax){
+        int snakeMin;
+        switch (snakeMax) {
+            case 2:    snakeMin = 2  ; break ;
+            case 4:    snakeMin = 2  ; break ;
+            case 8:    snakeMin = 4  ; break ;
+            case 16:   snakeMin = 4  ; break ;
+            case 32:   snakeMin = 8  ; break ;
+            case 64:   snakeMin = 16 ; break ;
+            case 128:  snakeMin = 32 ; break ;
+            case 256:  snakeMin = 32 ; break ;
+            case 512:  snakeMin = 64 ; break ;
+            case 1024: snakeMin = 64 ; break ;
+            default:   snakeMin = 128; break ;
+        }
+        return snakeMin;
+    }
 
     ////////////////////////////////// HEURISTICS /////////////////////////////////
 
     private float emptyTilesHeuristic(Board board){
         calcEmptyTiles(board);
-        return board.numEmptyTiles/2f;
+        return board.numEmptyTiles;
     }
     private float cornerTheBigGuyHeuristic(Board board){
         int max = -1;
@@ -197,23 +214,24 @@ public class Emulator {
             int temp = board.boardState[i/4][i%4];
             if (temp>max) {max = temp; maxI = i;}
         }
-        if (maxI == 0 || maxI == 3 || maxI == 12 || maxI == 15) return 1024f/2;
+        if (maxI == 0 || maxI == 3 || maxI == 12 || maxI == 15) return 100f;
         else return 0;
     }
     private float reduceRepeats(Board board){
         int[] sortedTiles = sortedValues(board);
         float repeats = 0;
         for (int i = 0; i<15; i++){
-            if (sortedTiles[i] < 8) break;
+            if (sortedTiles[i+1] < 8) break;
             if (sortedTiles[i] == sortedTiles[i+1]) repeats-=(16-i)*(16-i);
         }
-        return repeats/2;
+        return repeats;
     }
     private float wallSnake(Board board){
+
         determineSnakeDir(board);
         int[] snakeMatrix;
-        float score = 0;
-        int curAlloc = 512;
+        int[] sortedTiles = sortedValues(board);
+        int snakeMin = calcSnakeMin(sortedTiles[0]);
         switch (board.snakeDir) {
             case 0 : snakeMatrix = d0snake;  break;
             case 1 : snakeMatrix = d3snake;  break;
@@ -225,20 +243,17 @@ public class Emulator {
             case 7 : snakeMatrix = r0snake;  break;
             default: snakeMatrix = null;     break;
         }
-        int[] sortedTiles = sortedValues(board);
         if (snakeMatrix!=null) {
-            for (int i = 0; i<16; i++) {
-                if ((sortedTiles[i] == board.boardState[snakeMatrix[i]/4][snakeMatrix[i]%4]) && (sortedTiles[i]!=0)){
-                    score += curAlloc;
-                    if (curAlloc>1) curAlloc/=2;
-                }
-                else {break;}
+            int i = 0;
+            while (sortedTiles[i]>=snakeMin){
+                if (sortedTiles[i] == board.boardState[snakeMatrix[i]/4][snakeMatrix[i]%4]) {i++; continue;}
+                else {return 0;}
             }
+            return 100f;
         }else{
             board.snakeDir = -1;
-            score = 0;
+            return 0;
         }
-        return score/2;
     }
 
     ////////////////////////////////////// MANAGERS ////////////////////////////////////////////
@@ -253,7 +268,7 @@ public class Emulator {
 
                 copyTheDamnData(inBoard, boards[i]);
                 oneMove(i, boards[i]);
-                float curDirVal = wallSnake(boards[i]) + emptyTilesHeuristic(boards[i]) + cornerTheBigGuyHeuristic(boards[i]);// + reduceRepeats(boards[i]);
+                float curDirVal = wallSnake(boards[i]) + emptyTilesHeuristic(boards[i]);// + cornerTheBigGuyHeuristic(boards[i]);// + reduceRepeats(boards[i]);
                 if (curDirVal>max) max = curDirVal;
                 numberOfTries++;
                 if(numberOfTries%TICKER==0){
@@ -328,7 +343,7 @@ public class Emulator {
                 curBoard = testMove;
                 curBoard.printBoard();
                 determineSnakeDir(testMove);
-                System.out.printf("\nchosen move value: %21f\nsnake direction: %23d\n\n", dict.entrySet().iterator().next().getKey(), curBoard.snakeDir);
+                System.out.printf("\nchosen move value: %21f\nsnake direction: %23d\n\n", -dict.entrySet().iterator().next().getKey(), curBoard.snakeDir);
 
                 bestDir = curDir;
                 return bestDir;
