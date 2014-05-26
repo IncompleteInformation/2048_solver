@@ -32,8 +32,8 @@ public class Interactor {
         boolean justWon = true;
         boolean running = true;
         while(running) {
-        	// robot.delay(325);
-            robot.delay(2000);
+        	robot.delay(325);
+            // robot.delay(2000);
             coord = MouseInfo.getPointerInfo().getLocation();       
             Color color = robot.getPixelColor((int)coord.getX(), (int)coord.getY());
             if (player.findMax(player.curBoard) == 2048 && justWon) {keepGoing(robot);justWon=false;}
@@ -48,11 +48,7 @@ public class Interactor {
 	            case 3: robot.keyPress(KeyEvent.VK_RIGHT); break;
 	            default: dir = -1; System.out.println("move assignment failed!"); running = false; break;
 	        }
-            //player.printBoard(player.curBoard);
-            //robot.delay(500);
         }
-        System.out.printf("Total Boards Estimated: %22d\nTotal Boards Generated: %22d\n", player.boardsEstimated,
-    player.boardsGenerated);
     }
     public static void keepGoing(Robot robot){
     	int x = (int)(topLeft.getX() + (width*(2.0/4)*.333));
