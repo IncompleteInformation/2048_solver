@@ -9,7 +9,7 @@ public class Emulator {
     long numberOfTries;
 
     private static final int     TICKER     =  100000;
-    private static final int     MAXBOARDS  =  1000000;
+    private static final int     MAXBOARDS  =  100000;
 
     private static final int[]   d0 = {12,  8,  4,  0};
     private static final int[]   d1 = {13,  9,  5,  1};
@@ -265,10 +265,6 @@ public class Emulator {
     }
 
     private float snakeRecovery(Board board){
-        float points = wallSnake(board);
-        if (points != 0){
-            return points;
-        }
         determineSnakeDir(board);
         int[] snakeMatrix;
         int[] sortedTiles = sortedValues(board);
@@ -286,7 +282,7 @@ public class Emulator {
         }
         if (snakeMatrix == null) return cornerTheBigGuyHeuristic(board);
         int i = 0;
-        points = 0;
+        int points = 0;
         int cornerVal = 32;
         while (sortedTiles[i]>=snakeMin){
             if (i==16) {break;}
@@ -308,7 +304,7 @@ public class Emulator {
 
                 copyTheDamnData(inBoard, boards[i]);
                 oneMove(i, boards[i]);
-                float curDirVal = snakeRecovery(boards[i]) + emptyTilesHeuristic(boards[i]) + deltaScore(boards[i]); // + cornerTheBigGuyHeuristic(boards[i]);// + reduceRepeats(boards[i]);
+                float curDirVal = snakeRecovery(boards[i]) + emptyTilesHeuristic(boards[i]); // + cornerTheBigGuyHeuristic(boards[i]);// + reduceRepeats(boards[i]);
                 if (curDirVal>max) max = curDirVal;
                 numberOfTries++;
                 if(numberOfTries%TICKER==0){
@@ -367,8 +363,9 @@ public class Emulator {
             oneMove(i, boards[i]);
             // THIS IS WHERE THE RECURSIVE EVALUATION IS CALLED //
             Float moveValue = new Float(-1*(recursiveAverageRandoms(boards[i], depth)));
+            if (moveValue > 1000000) moveValue = 1000000f; //million
             while ((dict.containsKey(moveValue)) && !moveValue.equals(Float.NaN)){
-                moveValue += Float.valueOf(.0001f);
+                moveValue += Float.valueOf(.1f);
             }
             dict.put(moveValue,i);
         }
