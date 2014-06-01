@@ -8,7 +8,8 @@ public class Emulator {
     Board curBoard;
     long numberOfTries;
 
-    private static final int     TICKER  =  100000;
+    private static final int     TICKER     =  100000;
+    private static final int     MAXBOARDS  =  1000000;
 
     private static final int[]   d0 = {12,  8,  4,  0};
     private static final int[]   d1 = {13,  9,  5,  1};
@@ -61,13 +62,12 @@ public class Emulator {
     }
     
     public void oneMove(int dir, Board board) { //make private eventually
-        // System.out.println("oneMove");
         int[][] superSet;
         switch (dir){
-            case 0: superSet = d; break;
-            case 1: superSet = l; break;
-            case 2: superSet = u; break;
-            case 3: superSet = r; break;
+            case 0: superSet =  d; break;
+            case 1: superSet =  l; break;
+            case 2: superSet =  u; break;
+            case 3: superSet =  r; break;
             default: superSet = d; System.out.println("superSet Assignment Failed");break;
         }
         for (int i = 0; i < 4; i++){
@@ -79,7 +79,6 @@ public class Emulator {
         calcEmptyTiles(board);
     }
     private boolean isSame(Board one, Board two){
-        // System.out.println("isSame");
         for (int i = 0; i<16; i++){
             if (one.boardState[i/4][i%4] != two.boardState[i/4][i%4]) return false;
         }
@@ -124,10 +123,10 @@ public class Emulator {
     }
     private int calcRecursionDepth(Board board){
         int min = 2;
-        int max = 4;
+        int max = 3;
         int depth = min;
         if (board.numEmptyTiles == 0) board.numEmptyTiles = 1;
-        while (Math.pow((4*board.numEmptyTiles), (double)depth+1) < 1000000) depth++;
+        while (Math.pow((4*board.numEmptyTiles), (double)depth+1) < MAXBOARDS) depth++;
         if (depth>max) depth = max;
         return depth;
     }
@@ -172,14 +171,14 @@ public class Emulator {
     private void determineSnakeDir(Board board){
         int[] sortedTiles = sortedValues(board);
 
-        if      ((getTileVal(0,  board) == sortedTiles[0]) && (getTileVal(4,  board) == sortedTiles[1])) board.snakeDir = 0 ; //down  0
-        else if ((getTileVal(3,  board) == sortedTiles[0]) && (getTileVal(7,  board) == sortedTiles[1])) board.snakeDir = 1 ; //down  3
-        else if ((getTileVal(3,  board) == sortedTiles[0]) && (getTileVal(2,  board) == sortedTiles[1])) board.snakeDir = 2 ; //left  3
+        if      ((getTileVal( 0, board) == sortedTiles[0]) && (getTileVal( 4, board) == sortedTiles[1])) board.snakeDir = 0 ; //down  0
+        else if ((getTileVal( 3, board) == sortedTiles[0]) && (getTileVal( 7, board) == sortedTiles[1])) board.snakeDir = 1 ; //down  3
+        else if ((getTileVal( 3, board) == sortedTiles[0]) && (getTileVal( 2, board) == sortedTiles[1])) board.snakeDir = 2 ; //left  3
         else if ((getTileVal(15, board) == sortedTiles[0]) && (getTileVal(14, board) == sortedTiles[1])) board.snakeDir = 3 ; //left  15
         else if ((getTileVal(15, board) == sortedTiles[0]) && (getTileVal(11, board) == sortedTiles[1])) board.snakeDir = 4 ; //up    15
-        else if ((getTileVal(12, board) == sortedTiles[0]) && (getTileVal(8,  board) == sortedTiles[1])) board.snakeDir = 5 ; //up    12
+        else if ((getTileVal(12, board) == sortedTiles[0]) && (getTileVal( 8, board) == sortedTiles[1])) board.snakeDir = 5 ; //up    12
         else if ((getTileVal(12, board) == sortedTiles[0]) && (getTileVal(13, board) == sortedTiles[1])) board.snakeDir = 6 ; //right 12
-        else if ((getTileVal(0,  board) == sortedTiles[0]) && (getTileVal(1,  board) == sortedTiles[1])) board.snakeDir = 7 ; //right 0
+        else if ((getTileVal( 0, board) == sortedTiles[0]) && (getTileVal( 1, board) == sortedTiles[1])) board.snakeDir = 7 ; //right 0
         else    board.snakeDir = -1;
     }
     private int calcSnakeMin(int snakeMax){
@@ -199,6 +198,17 @@ public class Emulator {
         }
         return snakeMin;
     }
+    private long deltaScore(Board board){
+        long curBoardTotal     = 0;
+        long thisBoardTotal    = 0;
+        int sortedCurBoard [] = sortedValues(curBoard);
+        int sortedThisBoard[] = sortedValues(board);
+        for (int i = 0; i<16; i++){
+            if (sortedCurBoard [i] > 2) curBoardTotal  += Math.pow(sortedCurBoard [i], 2);
+            if (sortedThisBoard[i] > 2) thisBoardTotal += Math.pow(sortedThisBoard[i], 2);
+        }
+        return thisBoardTotal - curBoardTotal;
+    }
 
     ////////////////////////////////// HEURISTICS /////////////////////////////////
 
@@ -213,7 +223,7 @@ public class Emulator {
             int temp = board.boardState[i/4][i%4];
             if (temp>max) {max = temp; maxI = i;}
         }
-        if (maxI == 0 || maxI == 3 || maxI == 12 || maxI == 15) return 100f;
+        if (maxI == 0 || maxI == 3 || maxI == 12 || maxI == 15) return 32f;
         else return 0;
     }
     private float reduceRepeats(Board board){
@@ -226,7 +236,6 @@ public class Emulator {
         return repeats;
     }
     private float wallSnake(Board board){
-
         determineSnakeDir(board);
         int[] snakeMatrix;
         int[] sortedTiles = sortedValues(board);
@@ -245,7 +254,6 @@ public class Emulator {
         if (snakeMatrix!=null) {
             int i = 0;
             while (sortedTiles[i]>=snakeMin){
-                if (i==16) {break;}
                 if (sortedTiles[i] == board.boardState[snakeMatrix[i]/4][snakeMatrix[i]%4]) {i++; continue;}
                 else {return 0;}
             }
@@ -254,6 +262,38 @@ public class Emulator {
             board.snakeDir = -1;
             return 0;
         }
+    }
+
+    private float snakeRecovery(Board board){
+        float points = wallSnake(board);
+        if (points != 0){
+            return points;
+        }
+        determineSnakeDir(board);
+        int[] snakeMatrix;
+        int[] sortedTiles = sortedValues(board);
+        int snakeMin = calcSnakeMin(sortedTiles[0]);
+        switch (board.snakeDir) {
+            case 0 : snakeMatrix = d0snake;  break;
+            case 1 : snakeMatrix = d3snake;  break;
+            case 2 : snakeMatrix = l3snake;  break;
+            case 3 : snakeMatrix = l15snake; break;
+            case 4 : snakeMatrix = u15snake; break;
+            case 5 : snakeMatrix = u12snake; break;
+            case 6 : snakeMatrix = r12snake; break;
+            case 7 : snakeMatrix = r0snake;  break;
+            default: snakeMatrix = null;     break;
+        }
+        if (snakeMatrix == null) return cornerTheBigGuyHeuristic(board);
+        int i = 0;
+        points = 0;
+        int cornerVal = 32;
+        while (sortedTiles[i]>=snakeMin){
+            if (i==16) {break;}
+            if (sortedTiles[i] == board.boardState[snakeMatrix[i]/4][snakeMatrix[i]%4]) {i++; points += cornerVal; cornerVal /= 2;}
+            else {break;}
+        }
+        return points;
     }
 
     ////////////////////////////////////// MANAGERS ////////////////////////////////////////////
@@ -268,7 +308,7 @@ public class Emulator {
 
                 copyTheDamnData(inBoard, boards[i]);
                 oneMove(i, boards[i]);
-                float curDirVal = wallSnake(boards[i]) + emptyTilesHeuristic(boards[i]);// + cornerTheBigGuyHeuristic(boards[i]);// + reduceRepeats(boards[i]);
+                float curDirVal = snakeRecovery(boards[i]) + emptyTilesHeuristic(boards[i]) + deltaScore(boards[i]); // + cornerTheBigGuyHeuristic(boards[i]);// + reduceRepeats(boards[i]);
                 if (curDirVal>max) max = curDirVal;
                 numberOfTries++;
                 if(numberOfTries%TICKER==0){
@@ -320,9 +360,7 @@ public class Emulator {
         Board[] boards = new Board[4];
         Map<Float,Integer> dict = new TreeMap<Float,Integer>();
         int bestDir = -1; int curDir = -1;
-        
         int depth = calcRecursionDepth(curBoard);
-        // System.out.printf("\nrecursion depth: %23d\n", depth);
         for (int i = 0; i<4; i++){
             boards[i] = new Board();
             copyTheDamnData(curBoard, boards[i]);
